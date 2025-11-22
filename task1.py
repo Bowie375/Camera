@@ -15,7 +15,7 @@ from common import (
 )
 
 
-def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int = 0):
+def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int = 0, visualize: bool = True):
     """
     Args:
         meta_file_path (str): Path to meta file.
@@ -58,7 +58,7 @@ def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int 
         )
         left_img_list.append(np.array(cv2.imread(rgb_img_path)))
 
-    left_rect, proj_rect, mask, P1_crop, _, _, _ = rectify_and_crop(meta, left_img_list, proj_img_list)
+    left_rect, proj_rect, mask, P1_crop, _, R1, _, _, _ = rectify_and_crop(meta, left_img_list, proj_img_list)
     
     p, disp = None, None
     if single_shot:
@@ -94,7 +94,7 @@ def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int 
     plt.subplot(122)
     plt.plot(np.arange(depth.shape[1]), depth[horizon, :], 'r')
     plt.title("Depth")
-    plt.show()
+    plt.show(block=visualize)
 
     ## plot the matching result
     h1, w1 = left_rect[0].shape[:2]
@@ -118,7 +118,7 @@ def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int 
         x2, y2 = x1 - disp[y1, x1], y1 + h1
         plt.plot([x1, x2], [y1, y2], color=cmap(x1/w1), linewidth=2)   # red line
 
-    plt.show()
+    plt.show(block=visualize)
 
     ## plot the disparity map and depth map
     plt.figure(figsize=(12, 8))
@@ -130,27 +130,48 @@ def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int 
     plt.imshow(depth, cmap="gray")
     plt.colorbar()
     plt.title("Depth Map")
-    plt.show()
+    plt.show(block=visualize)
 
     #------------------------------------------------------------------------------------------------------#
 
     ## Export point cloud
     pcd, xs, ys = depth_to_pointcloud(depth, P1_crop)
-    colors = cv2.cvtColor(left_rect[-1], cv2.COLOR_BGR2RGB)[ys, xs]
 
-    pcp = PointCloudProcessor(pcd, colors/255.0)
+    pixel_orig = pcd @ R1 @ meta["KL"].T
+    pixel_horm = (pixel_orig[:, :2] / pixel_orig[:, 2:3]).astype(np.int32)
+    pixel_mask = (pixel_horm[:, 0] >= 0) & (pixel_horm[:, 0] < w1) & (pixel_horm[:, 1] >= 0) & (pixel_horm[:, 1] < h1)
+
+    depth_orig = np.zeros(left_img_list[-1].shape[:2], dtype=np.float32)
+    depth_orig[pixel_horm[:, 1][pixel_mask], pixel_horm[:, 0][pixel_mask]] = pixel_orig[:, 2][pixel_mask]
+
+    plt.figure(figsize=(12, 8))
+    plt.subplot(121)
+    plt.imshow(left_img_list[-1])
+    plt.title("Original Image")
+    plt.subplot(122)
+    plt.imshow(depth_orig, cmap="gray")
+    plt.title("Depth Map")
+    plt.show(block=visualize) 
+
+    pcd_orig, xs, ys = depth_to_pointcloud(depth_orig, meta["KL"])
+    colors = cv2.cvtColor(left_img_list[-1], cv2.COLOR_BGR2RGB)[ys, xs] / 255.0
+
+    pcp = PointCloudProcessor(pcd_orig, colors)
     print("<------- Process point cloud ------->")
     pcd_processed, idx = pcp.process()
 
     os.makedirs("tmp/pcd", exist_ok=True)
     if single_shot:
+        depth_path = os.path.join(os.path.dirname(meta_file_path), f"depth_{single_shot_number:04d}.npy")
         export_path = f"tmp/pcd/pcd_{single_shot_number:04d}.ply"
     else:
+        depth_path = os.path.join(os.path.dirname(meta_file_path), "depth_alacarte32.npy")
         export_path = "tmp/pcd/pcd_alacarte32.ply"
 
+    np.save(depth_path, depth_orig)
     pcp.save_pcd(pcd_processed, export_path)
 
 
 if __name__ == '__main__':
     meta_file_path = 'data/objects/keyboard/meta.npy'
-    main(meta_file_path, single_shot=False, single_shot_number=1)
+    main(meta_file_path, single_shot=False, single_shot_number=1, visualize=False)

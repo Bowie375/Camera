@@ -62,9 +62,12 @@ def rectify_and_crop(
     x0, x1, y0, y1 = np.min(xs), np.max(xs), np.min(ys), np.max(ys)
     
     print("<------- rectify and crop ------->\n"
-          f"Crop region for image: ({x0}, {x1}), ({y0}, {y1})\n")
+          f"Original image size: ({w}, {h})\n"
+          f"Crop region for image: ({x0}, {x1}), ({y0}, {y1})\n"
+          f"KL: \n{KL}\nKP: \n{KP}\n"
+          f"R1: \n{R1}\nR2: \n{R2}\nP1: \n{P1}\nP2: \n{P2}\nQ: \n{Q}\n")
 
-    left_crop = [img[y0:y1+1, x0:x1+1] for img in left_gray]  
+    left_crop = [img[y0:y1+1, x0:x1+1] for img in left_gray]
     right_crop = [img[y0:y1+1, x0:x1+1] for img in right_gray]  
     mask_crop = mask_gray[y0:y1+1, x0:x1+1]
 
@@ -72,7 +75,7 @@ def rectify_and_crop(
     P1_crop = adjust_intrinsics_after_crop(P1, x0, y0)
     P2_crop = adjust_intrinsics_after_crop(P2, x0, y0)
 
-    return left_crop, right_crop, mask_crop, P1_crop, P2_crop, Q, (x0, y0)
+    return left_crop, right_crop, mask_crop, P1_crop, P2_crop, R1, R2, Q, (x0, y0)
 
 def disp_to_depth(disp: np.ndarray, P: np.ndarray, baseline: float):
     """
