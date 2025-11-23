@@ -3,8 +3,8 @@ from task2 import task2
 from task3 import task3
 
 if __name__ == '__main__':
-    meta_file_path = 'data/objects/keyboard/meta.npy'
-    single_shot = True
+    meta_file_path = 'data/objects/book/meta.npy'
+    single_shot = False
     single_shot_number = 0
     visualize = True
 

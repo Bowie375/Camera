@@ -170,7 +170,7 @@ def task2(meta_file_path: str, single_shot_number: int = 0, visualize: bool = Tr
     print(f"right camera: \nR:\n {R}\nt:\n {t}")
     cam_R_pose = np.eye(4, dtype=np.float32)
     cam_R_pose[:3, :3] = R
-    cam_R_pose[:3, 3] = t.flatten() / 1000.0  # mm to meters
+    cam_R_pose[:3, 3] = t.flatten()
     np.save(os.path.join(os.path.dirname(meta_file_path), "cam_R_pose.npy"), cam_R_pose)
 
 if __name__ == '__main__':

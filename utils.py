@@ -140,6 +140,7 @@ class PointCloudProcessor:
             [0.0, 0.0, 0.0, 1.0],
         ])
 
+        camera_extrinsics[:3, 3] /= 1000.0  # mm -> meters
         cam_R_cam_L = camera_extrinsics
         cam_pose = cam_pose @ cam_L_world @ cam_R_cam_L @ cam_L_world.T
 
