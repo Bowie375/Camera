@@ -2,6 +2,7 @@ from typing import Union
 
 import numpy as np
 import open3d as o3d
+import pyrender
 
 #############################
 ## Pointcloud Helper Class ##
@@ -9,7 +10,7 @@ import open3d as o3d
 
 class PointCloudProcessor:
 
-    def __init__(self, pcd: Union[str, np.ndarray], color: np.ndarray = None):
+    def __init__(self, pcd: Union[str, np.ndarray], color: np.ndarray = None, num_points: int = 2048):
         if isinstance(pcd, str):
             self.pcd = o3d.io.read_point_cloud(pcd)
         elif isinstance(pcd, np.ndarray):
@@ -21,6 +22,8 @@ class PointCloudProcessor:
         if color is not None:
             self.pcd.colors = o3d.utility.Vector3dVector(color)
         
+        self.num_points = num_points
+
     def process(self):
         """Process the point cloud"""
 
@@ -28,7 +31,7 @@ class PointCloudProcessor:
         pcd_denoised = self._denoise(self.pcd)
         
         # Downsample
-        pcd_downsampled = self._downsample(pcd_denoised)
+        pcd_downsampled = self._downsample(pcd_denoised, self.num_points)
 
         # Smooth
         # pcd_smoothed = self._smooth(pcd_downsampled)
@@ -95,4 +98,60 @@ class PointCloudProcessor:
 
         return nn_idx
 
-    
+    def render(
+        self,
+        camera_intrinsics: np.ndarray,
+        camera_extrinsics: np.ndarray,
+        out_width: int,
+        out_height: int,
+    ):
+        """Render the point cloud"""
+
+        # Create Scene
+        scene = pyrender.Scene(bg_color=[1.0, 1.0, 1.0, 1.0], ambient_light=[0.3, 0.3, 0.3])
+
+        # Add Point Cloud
+        points = np.asarray(self.pcd.points) / 1000.0  # mm -> meters
+        colors = np.asarray(self.pcd.colors)
+
+        pcd_mesh = pyrender.Mesh.from_points(points=points, colors=colors)
+        scene.add(pcd_mesh)
+
+        # Add Camera
+        fx, fy = camera_intrinsics[0, 0], camera_intrinsics[1, 1]
+        cx, cy = camera_intrinsics[0, 2], camera_intrinsics[1, 2]
+
+        camera = pyrender.IntrinsicsCamera(
+            fx=fx, fy=fy, cx=cx, cy=cy,
+            znear=0.01, zfar=10.0
+        )
+
+        cam_pose = np.array([
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, -1., 0.0, 0.0],
+            [0.0, 0.0, -1., 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
+
+        cam_L_world = np.array([
+            [-1., 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, -1., 0.0],
+            [0.0, 0.0, 0.0, 1.0],
+        ])
+
+        cam_R_cam_L = camera_extrinsics
+        cam_pose = cam_pose @ cam_L_world @ cam_R_cam_L @ cam_L_world.T
+
+        scene.add(camera, pose=cam_pose)
+
+        # Add Light
+        light = pyrender.DirectionalLight(color=np.ones(3), intensity=2.0)
+        scene.add(light, pose=cam_pose)
+
+        # Offscreen render — point_size controls sprite size
+        r = pyrender.OffscreenRenderer(viewport_width=out_width, viewport_height=out_height, point_size=30.0)
+        color, depth = r.render(scene)
+        r.delete()
+
+        return color, depth

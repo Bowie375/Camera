@@ -2,6 +2,7 @@ import os
 
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.spatial import cKDTree
 
 from common import depth_to_pointcloud
@@ -28,7 +29,8 @@ def estimate_right_camera_pose(
     img_L: cv2.Mat, 
     img_R: cv2.Mat, 
     crop_offset_L: np.ndarray,
-    crop_offset_R: np.ndarray
+    crop_offset_R: np.ndarray,
+    visualize=True
 ):
     """
     Estimate the right camera pose given the left camera pose, depth map in left camera, and image pair.
@@ -42,7 +44,8 @@ def estimate_right_camera_pose(
         img_R: right image
         crop_offset_L: offset of the crop in the left image
         crop_offset_R: offset of the crop in the right image
-
+        visualize: whether to visualize the matching result
+        
     Returns:
         R: rotation matrix of the right camera (relative to the left camera)
         t: translation vector of the right camera (relative to the left camera)
@@ -70,6 +73,30 @@ def estimate_right_camera_pose(
     pixel_R = pixel_R[mask_in_range]
 
     print(f"Number of in-range matching features: {len(pixel_L)}\n")
+
+    ## 2.2 plot the matching result
+    img_L_np = cv2.cvtColor(img_L, cv2.COLOR_BGR2RGB)
+    img_R_np = cv2.cvtColor(img_R, cv2.COLOR_BGR2RGB)
+    h1, w1 = img_L_np.shape[:2]
+    h2, w2 = img_R_np.shape[:2]
+    canvas_h = h1 + h2
+    canvas_w = max(w1, w2)
+    canvas = np.zeros((canvas_h, canvas_w, 3), dtype=np.uint8)
+    canvas[:h1, :w1] = img_L_np
+    canvas[h1:h1+h2, :w2] = img_R_np
+
+    num_matches = min(len(matches), 100)
+    plt.figure(figsize=(8, 12))
+    plt.title(f"Feature Matching Result, sampled {num_matches} matches")
+    plt.imshow(canvas)
+    plt.axis('off')
+
+    cmap = plt.cm.viridis
+    for i in range(0, num_matches):
+        x1, y1 = pts_L[i]
+        x2, y2 = pts_R[i]
+        plt.plot([x1, x2], [y1, y2+h1], color=cmap(i/num_matches), linewidth=2)
+    plt.show(block=visualize)
 
     # 3. Get the pointcloud of corresponding pixels
     pixel_mask = np.zeros_like(depth_L)
@@ -104,7 +131,7 @@ def estimate_right_camera_pose(
 
     return R, t
 
-def main(meta_file_path: str, single_shot_number: int = 0):
+def task2(meta_file_path: str, single_shot_number: int = 0, visualize: bool = True):
     """
     Args:
         meta_file_path (str): Path to meta file.
@@ -134,13 +161,18 @@ def main(meta_file_path: str, single_shot_number: int = 0):
         img_L_cropped,
         img_R_cropped,
         np.array([x0, y0]),
-        np.array([x0, y0])
+        np.array([x0, y0]),
+        visualize=visualize
     )
 
-    print("<------- main ------->")
+    print("<------- pose estimation result ------->")
     print(f"projector: \nR:\n {meta['R']}\nt:\n {meta['T'].flatten()}\n")
-    print(f"camera: \nR:\n {R}\nt:\n {t}")
+    print(f"right camera: \nR:\n {R}\nt:\n {t}")
+    cam_R_pose = np.eye(4, dtype=np.float32)
+    cam_R_pose[:3, :3] = R
+    cam_R_pose[:3, 3] = t.flatten() / 1000.0  # mm to meters
+    np.save(os.path.join(os.path.dirname(meta_file_path), "cam_R_pose.npy"), cam_R_pose)
 
 if __name__ == '__main__':
     meta_file_path = 'data/objects/book/meta.npy'
-    main(meta_file_path, single_shot_number=0)
+    task2(meta_file_path, single_shot_number=0, visualize=True)

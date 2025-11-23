@@ -15,12 +15,13 @@ from common import (
 )
 
 
-def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int = 0, visualize: bool = True):
+def task1(meta_file_path: str, single_shot: bool = True, single_shot_number: int = 0, visualize: bool = True):
     """
     Args:
         meta_file_path (str): Path to meta file.
         single_shot (bool): Whether to run single-shot mode.
         single_shot_number (int): Which single-shot to run.
+        visualize (bool): Whether to visualize the plotted results.
     """
 
     meta = read_meta(meta_file_path)
@@ -156,22 +157,22 @@ def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int 
     pcd_orig, xs, ys = depth_to_pointcloud(depth_orig, meta["KL"])
     colors = cv2.cvtColor(left_img_list[-1], cv2.COLOR_BGR2RGB)[ys, xs] / 255.0
 
-    pcp = PointCloudProcessor(pcd_orig, colors)
+    pcp = PointCloudProcessor(pcd_orig, colors, num_points=4096)
     print("<------- Process point cloud ------->")
     pcd_processed, idx = pcp.process()
 
     os.makedirs("tmp/pcd", exist_ok=True)
     if single_shot:
         depth_path = os.path.join(os.path.dirname(meta_file_path), f"depth_{single_shot_number:04d}.npy")
-        export_path = f"tmp/pcd/pcd_{single_shot_number:04d}.ply"
+        pcd_path = os.path.join(os.path.dirname(meta_file_path), f"pcd_{single_shot_number:04d}.ply")
     else:
         depth_path = os.path.join(os.path.dirname(meta_file_path), "depth_alacarte32.npy")
-        export_path = "tmp/pcd/pcd_alacarte32.ply"
+        pcd_path = os.path.join(os.path.dirname(meta_file_path), "pcd_alacarte32.ply")
 
     np.save(depth_path, depth_orig)
-    pcp.save_pcd(pcd_processed, export_path)
+    pcp.save_pcd(pcd_processed, pcd_path)
 
 
 if __name__ == '__main__':
     meta_file_path = 'data/objects/book/meta.npy'
-    main(meta_file_path, single_shot=False, single_shot_number=1, visualize=True)
+    task1(meta_file_path, single_shot=False, single_shot_number=1, visualize=False)
