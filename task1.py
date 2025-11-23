@@ -173,5 +173,5 @@ def main(meta_file_path: str, single_shot: bool = True, single_shot_number: int 
 
 
 if __name__ == '__main__':
-    meta_file_path = 'data/objects/keyboard/meta.npy'
-    main(meta_file_path, single_shot=False, single_shot_number=1, visualize=False)
+    meta_file_path = 'data/objects/book/meta.npy'
+    main(meta_file_path, single_shot=False, single_shot_number=1, visualize=True)
