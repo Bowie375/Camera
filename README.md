@@ -7,4 +7,4 @@ Processing camera data is a basic need in EAI researches. In this repository, I 
 
 ## Tasks Included Current;y
 1. __Camera Calibration__: See branch `calibration` for more details
-2. __Stereo Light Camera Processing__: See branch `stereo light` for more details.
+2. __Stereo Light Camera Processing__: See branch `stereo-light` for more details.
